@@ -1,4 +1,4 @@
-use std::{ptr, sync::{atomic::{AtomicPtr, Ordering}, Arc, Mutex}};
+use std::{borrow::Borrow, ptr, sync::{atomic::{AtomicPtr, Ordering}, Arc, Mutex}};
 use std::cell::RefCell;
 
 struct Node {
@@ -64,7 +64,7 @@ impl Queue {
                     }
                     self.tail.compare_exchange(tail, next, Ordering::SeqCst, Ordering::SeqCst).ok();
                 } else {
-                    if self.head.compare_exchange(head, next, Ordering::SeqCst, Ordering::SeqCst).is_ok() {
+                    if self.head.compare_exchange(head, unsafe { (*next ).next.load(Ordering::SeqCst) }, Ordering::SeqCst, Ordering::SeqCst).is_ok() {
                         return unsafe{ Some((*next).value) };
                     }
                         
