@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, ptr, sync::{atomic::{AtomicPtr, Ordering}, Arc, Mutex}};
+use std::{ptr, sync::{atomic::{AtomicPtr, Ordering}, Arc, Mutex}};
 use std::cell::RefCell;
 
 struct Node {
@@ -12,6 +12,7 @@ impl Node {
     }
 }
 
+#[derive(Clone)]
 struct Queue {
     head: Arc<AtomicPtr<Node>>,
     tail: Arc<AtomicPtr<Node>>,
@@ -19,10 +20,9 @@ struct Queue {
 
 impl Queue {
     fn new() -> Self {
-        let node: Arc<RefCell<Node>> = Node::new(0);
         Self {
-            head: Arc::new(AtomicPtr::new(node.as_ptr())),
-            tail: Arc::new(AtomicPtr::new(node.as_ptr())),
+            head: Arc::new(AtomicPtr::new(Node::new(0).as_ptr())),
+            tail: Arc::new(AtomicPtr::new(Node::new(0).as_ptr())),
         }
     }
 
@@ -39,16 +39,16 @@ impl Queue {
                     if unsafe {
                         (*tail).next.compare_exchange(next, new_node.as_ptr(), Ordering::SeqCst, Ordering::SeqCst).is_ok()
                     }  {
-                        self.tail.compare_exchange(tail, new_node.as_ptr(), Ordering::SeqCst, Ordering::SeqCst);
+                        let _ = self.tail.compare_exchange(tail, new_node.as_ptr(), Ordering::SeqCst, Ordering::SeqCst);
                         break;
                     }
                 } else {
-                    self.tail.compare_exchange(tail, next, Ordering::SeqCst, Ordering::SeqCst);
+                    let _ = self.tail.compare_exchange(tail, next, Ordering::SeqCst, Ordering::SeqCst);
                 }
             }
         }
         
-        self.tail.compare_exchange(tail, new_node.as_ptr(), Ordering::SeqCst, Ordering::SeqCst);
+        let _ = self.tail.compare_exchange(tail, new_node.as_ptr(), Ordering::SeqCst, Ordering::SeqCst);
     }
 
     fn dequeue(&mut self) -> Option<i64> {
@@ -74,6 +74,44 @@ impl Queue {
     }
 }
 
-fn main() {
 
+fn main() {
+    // write code to test the code of queue by running many parallel threads to enqueue and dequeue elements
+    // also explain with comments what each code block does
+
+    let queue = Queue::new();
+
+    let mut handles = vec![];
+
+    for i in 0..10 {
+        let queue = Arc::new(Mutex::new(queue.clone()));
+
+        let handle = std::thread::spawn(move || {
+            let mut queue = queue.lock().unwrap();
+            queue.enqueue(i);
+        });
+
+        handles.push(handle);
+    }
+
+    for handle in handles {
+        handle.join().unwrap();
+    }
+
+    let mut handles = vec![];
+
+    for _ in 0..10 {
+        let queue = Arc::new(Mutex::new(queue.clone()));
+
+        let handle = std::thread::spawn(move || {
+            let mut queue = queue.lock().unwrap();
+            println!("{:?}", queue.dequeue());
+        });
+
+        handles.push(handle);
+    }
+
+    for handle in handles {
+        handle.join().unwrap();
+    }
 }
