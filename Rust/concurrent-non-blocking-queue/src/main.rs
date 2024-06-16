@@ -31,12 +31,14 @@ impl Queue {
         let mut tail;
 
         loop {
-            let tail = self.tail.load(Ordering::SeqCst);
-            let next = (*tail).next.load(Ordering::SeqCst);
+            tail = self.tail.load(Ordering::SeqCst);
+            let next = unsafe{ (*tail).next.load(Ordering::SeqCst) };
 
             if tail == self.tail.load(Ordering::SeqCst) {
                 if next.is_null() {
-                    if (*tail).next.compare_exchange(next, new_node.as_ptr(), Ordering::SeqCst, Ordering::SeqCst).is_ok() {
+                    if unsafe {
+                        (*tail).next.compare_exchange(next, new_node.as_ptr(), Ordering::SeqCst, Ordering::SeqCst).is_ok()
+                    }  {
                         self.tail.compare_exchange(tail, new_node.as_ptr(), Ordering::SeqCst, Ordering::SeqCst);
                         break;
                     }
@@ -53,7 +55,7 @@ impl Queue {
         loop {
             let head = self.head.load(Ordering::SeqCst);
             let tail = self.tail.load(Ordering::SeqCst);
-            let next = (*head).next.load(Ordering::SeqCst);
+            let next = unsafe {(*head).next.load(Ordering::SeqCst)};
 
             if head == self.head.load(Ordering::SeqCst) {
                 if head == tail {
@@ -63,7 +65,7 @@ impl Queue {
                     self.tail.compare_exchange(tail, next, Ordering::SeqCst, Ordering::SeqCst).ok();
                 } else {
                     if self.head.compare_exchange(head, next, Ordering::SeqCst, Ordering::SeqCst).is_ok() {
-                        return Some((*next).value);
+                        return unsafe{ Some((*next).value) };
                     }
                         
                 }
