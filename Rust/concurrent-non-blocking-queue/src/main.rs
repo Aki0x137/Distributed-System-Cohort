@@ -76,9 +76,6 @@ impl Queue {
 
 
 fn main() {
-    // write code to test the code of queue by running many parallel threads to enqueue and dequeue elements
-    // also explain with comments what each code block does
-
     let queue = Queue::new();
 
     let mut handles = vec![];
